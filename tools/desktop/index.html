@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neuroform — Brain File Desktop</title>
+<style>
+  :root {
+    --bg:#0a0e13; --panel:#111823; --panel2:#0d131c; --line:#1f2c3a;
+    --txt:#dbe6ee; --dim:#74879a; --acc:#4fc3ff; --ok:#5fe3a0; --warn:#ffc46b; --err:#ff7d7d;
+    --v:#ff6b8a; --a:#ffc46b;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font:13.5px/1.45 "Segoe UI",system-ui,sans-serif; height:100vh; display:flex; flex-direction:column; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#22303e; border-radius:4px; }
+
+  header { display:flex; align-items:center; gap:12px; padding:10px 18px; background:linear-gradient(180deg,#131c26,#0f1620); border-bottom:1px solid var(--line); }
+  .logo { font-weight:700; letter-spacing:2px; font-size:15px; }
+  .logo b { color:var(--acc); }
+  .brand-sub { color:var(--dim); font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+  header input { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:7px; padding:6px 10px; font-size:13px; width:260px; outline:none; }
+  header input:focus { border-color:var(--acc); }
+  .btn { background:#182330; color:var(--txt); border:1px solid var(--line); border-radius:7px; padding:6px 13px; font-size:12.5px; cursor:pointer; transition:.15s; }
+  .btn:hover { border-color:var(--acc); color:var(--acc); }
+  .btn.pri { background:#123448; border-color:#1d5a78; }
+  .btn.pri:hover { background:#16445f; color:var(--txt); }
+  .pill { font-size:11px; border:1px solid var(--line); border-radius:20px; padding:3px 12px; color:var(--dim); white-space:nowrap; }
+  .cur { font-weight:700; letter-spacing:.02em; }
+  .cur.you { color:#4fc3ff; }        /* your cursor: bright cyan, always this color */
+  .cur.brain { color:#ff6b3d; }      /* brain cursor: vivid orange, distinct from yours */
+  .editor-host { height:300px; border:1px solid var(--line); border-radius:7px; overflow:hidden; background:#0f1620; margin:0 0 6px; }
+  .w2head-line { display:flex; gap:8px; margin-bottom:6px; align-items:center; }
+  .w2tag { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:10px; color:var(--ok); border:1px solid var(--ok); }
+  .w2tag.brain { color:#ffb347; border-color:#ffb347; }
+  .w2resp { height:140px; border:1px solid var(--line); border-radius:7px; overflow-y:auto; background:var(--panel2); padding:8px 10px; font-size:12.5px; line-height:1.5; color:var(--txt); margin-bottom:6px; }
+  .w2resp div.part { border-bottom:1px dashed #1a2530; padding-bottom:4px; margin-bottom:4px; }
+  .w2resp .who { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--dim); }
+  .w2kbd { border:1px dashed #3d6c8f; border-radius:8px; padding:8px 10px; background:#0d141c; margin-bottom:8px; }
+  .w2kbd textarea { width:100%; background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:12px/1.5 monospace; resize:vertical; }
+  .w2wrap { display:flex; gap:10px; margin-top:8px; }
+  .w2tree { width:230px; min-width:190px; border:1px solid var(--line); border-radius:7px; padding:8px; background:#0d141c; overflow-y:auto; max-height:520px; }
+  .w2head { display:flex; align-items:center; justify-content:space-between; font-size:11px; letter-spacing:1.5px; color:#5d7c9a; margin:8px 0 4px; }
+  .w2list { list-style:none; margin:0 0 6px; padding:0; }
+  .w2list li { font-size:12.5px; padding:3px 6px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .w2list li:hover { background:#131c26; }
+  .w2list li.on { background:#1d3a4d; color:#dff3ff; }
+  .w2list li .w2t { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .w2list li .w2w { font-size:10px; color:#5d7c9a; }
+  .w2list li .w2x { color:#5d7c9a; font-size:12px; padding:0 3px; border-radius:3px; visibility:hidden; }
+  .w2list li:hover .w2x { visibility:visible; }
+  .w2list li .w2x:hover { color:#ff8f8f; background:#2a1616; }
+  .w2list li.chapter { color:#8fd0ff; font-weight:600; }
+  .w2list li.chapter .w2t::before { content:"▸ "; opacity:.6; }
+  .w2list li.scene { padding-left:20px; }
+  .w2list li.scene .w2t::before { content:"✎ "; opacity:.5; }
+  .w2list li.note .w2t::before { content:"🗒 "; opacity:.5; }
+  .w2list li.journal .w2t::before { content:"✦ "; opacity:.5; }
+  .w2list li.drag { opacity:.4; }
+  .w2list li.drop { outline:1px dashed #5fd3a0; outline-offset:-1px; }
+  .w2list input.w2edit { width:100%; background:#0f1620; border:1px solid #5fd3a0; color:#dff3ff; border-radius:4px; font-size:12px; padding:1px 4px; }
+  #docTabs { gap:6px; flex-wrap:wrap; margin-top:8px; }
+  #docTabs .dtab { font-size:12px; padding:3px 8px; border:1px solid var(--line); border-radius:14px; cursor:pointer; color:#9db4c8; display:flex; gap:6px; align-items:center; }
+  #docTabs .dtab.on { background:#1d3a4d; border-color:#3d6c8f; color:#dff3ff; }
+  #docTabs .dtab .dtx { font-size:10px; color:#ff8f8f; padding:0 3px; border-radius:3px; }
+  #docTabs .dtab .dtx:hover { background:#2a1616; }
+  .cm-dim { opacity:.22; }
+  .goalbar { flex:1; min-width:80px; }
+  @keyframes blink { 50% { opacity:0; } }
+  .pill.live { color:var(--ok); border-color:var(--ok); animation:pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity:.55; } }
+
+  nav { display:flex; gap:2px; padding:0 18px; background:var(--panel2); border-bottom:1px solid var(--line); overflow-x:auto; }
+  nav button { background:none; border:none; color:var(--dim); font-size:13px; padding:11px 16px; cursor:pointer; border-bottom:2px solid transparent; letter-spacing:.3px; }
+  nav button:hover { color:var(--txt); }
+  nav button.active { color:var(--acc); border-bottom-color:var(--acc); }
+
+  main { flex:1; display:flex; gap:16px; padding:16px 18px; overflow:hidden; }
+  .tabs { flex:1; overflow-y:auto; padding-right:4px; min-width:0; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+
+  /* Activity = small collapsible floating log, not a dominating sidebar */
+  aside#activity { position:fixed; right:16px; bottom:16px; width:340px; max-width:80vw; z-index:40;
+    display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px;
+    background:var(--panel); box-shadow:0 8px 30px rgba(0,0,0,.45); overflow:hidden; }
+  aside#activity.collapsed { width:auto; }
+  aside#activity .act-head { display:flex; align-items:center; gap:8px; padding:7px 12px;
+    background:linear-gradient(180deg,#131c26,#0f1620); border-bottom:1px solid var(--line); font-size:11px;
+    letter-spacing:1.5px; color:#5d7c9a; text-transform:uppercase; cursor:pointer; user-select:none; }
+  aside#activity .act-head .dot { width:7px; height:7px; border-radius:50%; background:var(--ok); }
+  aside#activity .act-head .act-toggle { margin-left:auto; font-size:10px; color:var(--dim); }
+  aside#activity.collapsed .act-head .act-toggle { transform:rotate(-90deg); }
+  aside#activity .act-body { display:flex; flex-direction:column; }
+  #log { background:#070a0d; border:none; padding:10px 12px; font:11.5px/1.6 "Cascadia Mono",Consolas,monospace;
+    height:180px; max-height:38vh; overflow-y:auto; color:#9db8c9; }
+  aside#activity.collapsed .act-body { display:none; }
+  #log .cmd { color:var(--acc); }
+  #log .ok { color:var(--ok); }
+  #log .err { color:var(--err); }
+
+  /* ---- shared card/layout primitives (restored) ---- */
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .card h3 { font-size:10.5px; text-transform:uppercase; letter-spacing:1.4px; color:var(--dim); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  .card h3 .u { color:var(--acc); letter-spacing:0; text-transform:none; }
+  .bar { height:8px; background:#1a2530; border-radius:5px; overflow:hidden; margin:5px 0 2px; }
+  .bar i { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--acc),#2b8fc4); transition:width .5s; }
+  .bar i.v { background:linear-gradient(90deg,#b74a63,var(--v)); }
+  .bar i.a { background:linear-gradient(90deg,#a87a2e,var(--a)); }
+  .bar i.ok { background:linear-gradient(90deg,#3ba06c,var(--ok)); }
+  .kv { display:flex; justify-content:space-between; font-size:12px; color:var(--dim); padding:3px 0; border-bottom:1px dashed #1a2530; }
+  .kv b { color:var(--txt); font-weight:600; }
+  .row { display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap; }
+  .row label { color:var(--dim); font-size:11.5px; min-width:64px; }
+  .row input { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12.5px; outline:none; flex:1; min-width:120px; }
+  .row input.sm { flex:0 0 64px; }
+  .hint { color:var(--dim); font-size:11.5px; margin-top:4px; }
+
+  /* D2 — layer panel */
+  .cv-panel { width:210px; min-width:180px; border:1px solid var(--line); border-radius:8px; background:#0d141c; padding:8px; display:flex; flex-direction:column; }
+  .cv-panel-head { font-size:10.5px; letter-spacing:1.4px; color:#5d7c9a; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .cv-layers { flex:1; overflow-y:auto; min-height:120px; }
+  .cv-ly { display:flex; align-items:center; gap:4px; padding:4px 5px; border:1px solid transparent; border-radius:6px; margin-bottom:3px; font-size:11.5px; cursor:pointer; }
+  .cv-ly.grp { border-left:2px solid #3d6c8f; background:#101c26; font-weight:600; }
+  .cv-ly.member { padding-left:16px; font-size:11px; }
+  .cvly-arrow { color:var(--dim); cursor:pointer; font-size:9px; width:10px; }
+  .cv-ly.on { border-color:var(--acc); background:#122231; }
+  .cv-ly.off { opacity:.45; }
+  .cv-ly.lock { opacity:.7; }
+  .cvly-eye, .cvly-lock { background:none; border:none; color:var(--dim); cursor:pointer; font-size:11px; padding:1px 3px; }
+  .cvly-mk { width:14px; text-align:center; color:#8fd0ff; font-size:10px; }
+  .cvly-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--txt); }
+  .cvly-op { width:44px; height:14px; }
+  .cvly-blend { width:62px; font-size:9.5px; background:var(--panel2); color:var(--dim); border:1px solid var(--line); border-radius:4px; }
+  .cv-panel-ops { display:flex; gap:2px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:6px; }
+  .cv-panel-ops .btn { padding:3px 5px; font-size:11px; }
+  #cvPresetSel, #cvModeSel { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-size:11.5px; }
+  /* D4 — color palette swatches */
+  .cv-palette { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .cv-palette .sw { width:20px; height:20px; border-radius:5px; border:2px solid var(--line); cursor:pointer; }
+  .cv-palette .sw.sel { border-color:var(--acc); box-shadow:0 0 6px var(--acc); }
+  .cv-palette .sw:hover { transform:scale(1.12); }
+  /* D5 — selection tools */
+  .cv-tools { display:flex; gap:2px; flex-wrap:wrap; }
+  .cv-tools .btn { padding:3px 6px; font-size:10.5px; }
+  .cv-tools .btn.sel { background:var(--acc); color:#06121a; border-color:#3f9ac0; }
+  .cv-sep { width:1px; height:20px; background:var(--line); margin:0 4px; }
+  .cv-march { pointer-events:none; }
+  /* D7 — reference board */
+  .cv-ref { border:1px dashed var(--line); border-radius:6px; margin-top:6px; padding:6px; min-height:60px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#0d141c; }
+  .cv-ref img { max-width:100%; max-height:200px; border-radius:4px; }
+  .cv-ref .placeholder { color:var(--dim); font-size:11.5px; }
+
+  .chip { display:inline-flex; align-items:center; gap:6px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:4px 10px; font-size:11.5px; color:var(--dim); margin:0 6px 6px 0; }
+  .chip i { width:7px; height:7px; border-radius:50%; background:#2a3a4a; }
+  .chip.hot i { background:var(--acc); box-shadow:0 0 8px var(--acc); }
+  .chip.hot { color:var(--txt); border-color:#2b5b74; }
+
+  #face { width:100%; aspect-ratio:1; background:radial-gradient(circle at 50% 38%, #16202b, #0b0f14); border:1px solid var(--line); border-radius:16px; }
+  .face-wrap { display:flex; gap:12px; }
+  .face-wrap .card { flex:1; }
+
+  .metric { font-size:22px; font-weight:700; color:var(--txt); }
+  .metric small { font-size:11px; color:var(--dim); font-weight:400; margin-left:4px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  td,th { padding:5px 8px; border-bottom:1px solid #16212c; text-align:left; }
+  th { color:var(--dim); font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:1px; }
+  td b { color:var(--acc); font-weight:600; }
+
+  /* W4 — structure tools */
+  .st-chapter { margin-bottom:12px; }
+  .st-chapter-head { font-size:11px; letter-spacing:1.2px; color:#8fd0ff; margin-bottom:6px; font-weight:600; }
+  .st-cards { display:flex; flex-direction:column; gap:6px; }
+  .st-card { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:grab; }
+  .st-card:hover { border-color:#33566e; }
+  .st-card.drag { opacity:.4; }
+  .st-card.drop { outline:1px dashed #5fd3a0; outline-offset:-1px; }
+  .st-card.final { border-left:3px solid var(--ok); }
+  .st-card.revised { border-left:3px solid var(--warn); }
+  .st-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .st-card-title { font-weight:600; color:var(--txt); }
+  .st-card-status { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); background:#182330; border-radius:10px; padding:2px 8px; }
+  .st-card-syn { font-size:11.5px; color:var(--dim); margin-top:4px; }
+  .st-card-meta { font-size:10.5px; color:#5d7c9a; margin-top:3px; }
+  .st-edit { background:var(--panel2); border:1px solid var(--acc); border-radius:8px; padding:8px; }
+  .st-track { display:flex; gap:4px; overflow-x:auto; padding:10px 2px; border:1px solid var(--line); border-radius:8px; background:#0a0f14; }
+  .st-block { flex:0 0 auto; background:var(--panel2); border:1px solid var(--line); border-top:3px solid var(--acc); border-radius:5px; padding:6px 8px; min-width:60px; cursor:default; }
+  .st-block-title { font-size:11px; color:var(--txt); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .st-block-date { font-size:9.5px; color:#5d7c9a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .st-hint { font-size:10.5px; color:#5d7c9a; margin-top:6px; }
+
+  /* W5 — version history */
+  .h-pre { background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:8px; font:12px/1.5 "Cascadia Mono",Consolas,monospace; white-space:pre-wrap; max-height:180px; overflow-y:auto; color:var(--txt); }
+  .h-diff { background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:8px; font:12px/1.6 "Cascadia Mono",Consolas,monospace; white-space:pre-wrap; max-height:180px; overflow-y:auto; color:var(--txt); }
+  .hd-add { background:#1d3a2d; color:var(--ok); }
+  .hd-del { background:#3a1d1d; color:var(--err); text-decoration:line-through; }
+
+  /* W6 — analysis & continuity */
+  .an-hist { display:flex; gap:6px; align-items:flex-end; height:84px; margin-bottom:6px; border-bottom:1px solid var(--line); }
+  .an-col { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; flex:1; }
+  .an-bar { width:70%; background:linear-gradient(180deg,var(--acc),#2b8fc4); border-radius:3px 3px 0 0; min-height:2px; }
+  .an-cnt { font-size:9px; color:var(--dim); }
+  .an-lab { font-size:9px; color:#5d7c9a; }
+  .an-kv { margin-bottom:6px; }
+  .an-cloud { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:baseline; margin-top:4px; }
+  .an-word { color:var(--txt); }
+  .an-word.hot { color:var(--warn); font-weight:700; }
+  .an-flag { background:#2a1d16; border:1px solid var(--warn); color:var(--warn); border-radius:6px; padding:5px 9px; font-size:11.5px; margin-bottom:6px; }
+  .an-cont-head { font-size:11px; letter-spacing:1px; color:#8fd0ff; margin-bottom:4px; text-transform:uppercase; }
+  .an-flag.tl { background:#1d2a16; border-color:var(--ok); color:var(--ok); }
+  .an-ent { font-size:11.5px; color:var(--dim); margin-top:5px; }
+
+  /* W8 — brain integration panel */
+  .bp-h { font-size:10.5px; letter-spacing:1.2px; color:#8fd0ff; margin:8px 0 3px; text-transform:uppercase; }
+  .bp-trace, .bp-node { font-size:11.5px; padding:2px 0; color:var(--txt); border-bottom:1px dashed #1a2530; }
+  .bp-trace .bp-src { color:var(--acc); font-size:9.5px; text-transform:uppercase; }
+  .bp-trace .kw { color:var(--dim); }
+  .dim { color:var(--dim); }
+  .bp-axis { display:flex; align-items:center; gap:8px; margin:3px 0; }
+  .bp-axis-label { width:96px; font-size:10.5px; color:#5d7c9a; text-align:right; }
+  .bp-axis-bars { display:flex; gap:3px; }
+  .bp-bar { height:9px; border-radius:4px; display:inline-block; }
+  .bp-bar.self { background:var(--acc); }
+  .bp-bar.prior { background:var(--dim); opacity:.6; }
+  .bp-legend { font-size:10.5px; color:var(--dim); margin-top:1px; }
+  .sw { width:9px; height:9px; border-radius:2px; display:inline-block; margin:0 4px; }
+  .sw.self { background:var(--acc); }
+  .sw.prior { background:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <div><div class="logo">NEURO<b>FORM</b></div><div class="brand-sub">brain file desktop</div></div>
+  <input type="text" id="path" value="m1.brain" placeholder="brain file path" spellcheck="false">
+  <button class="btn pri" id="btnState">refresh state</button>
+  <select id="encSel" title="feature encoder — chosen at creation, immutable for the file's life">
+    <option value="handcrafted">eyes: handcrafted (default)</option>
+    <option value="jepa">eyes: jepa (V-JEPA 2)</option>
+    <option value="onnx">eyes: onnx (DINOv2-small)</option>
+  </select>
+  <button class="btn" id="btnNew">new brain…</button>
+  <span class="pill" id="pill">—</span>
+</header>
+
+<nav id="tabs">
+  <button data-tab="brain" class="active">Brain</button>
+  <button data-tab="writing">Writing</button>
+  <button data-tab="drawing">Drawing</button>
+  <button data-tab="voice">Voice</button>
+  <button data-tab="body">Body</button>
+  <button data-tab="network">Network</button>
+  <button data-tab="repro">Reproduction</button>
+</nav>
+
+<main>
+  <div class="tabs">
+    <!-- ================= BRAIN ================= -->
+    <section class="tab active" id="tab-brain">
+      <div class="grid">
+        <div class="card"><h3>Affect <span class="u" id="tVal">0.0</span></h3>
+          <div class="kv"><span>valence</span><b id="vVal">—</b></div><div class="bar"><i class="v" id="vBar" style="width:50%"></i></div>
+          <div class="kv"><span>arousal</span><b id="aVal">—</b></div><div class="bar"><i class="a" id="aBar" style="width:20%"></i></div>
+          <div class="kv"><span>warmth</span><b id="wVal">—</b></div>
+          <div class="kv"><span>safety</span><b id="sVal">—</b></div>
+          <div class="kv"><span>loneliness</span><b id="lVal">—</b></div>
+        </div>
+        <div class="card"><h3>Memory</h3>
+          <div class="metric" id="mTraces">—</div><small>episodic traces</small>
+          <div class="kv"><span>semantic nodes</span><b id="mNodes">—</b></div>
+          <div class="kv"><span>pruned</span><b id="mPruned">—</b></div>
+          <div class="kv"><span>sleep pressure</span><b id="mSleep">—</b></div>
+          <div class="kv"><span>dreams</span><b id="mDreams">—</b></div>
+        </div>
+        <div class="card"><h3>Chemistry <span class="u">modulators</span></h3>
+          <div id="mods"></div>
+        </div>
+        <div class="card"><h3>Cortex <span class="u">regions</span></h3><div id="cortex"></div></div>
+        <div class="card"><h3>Physics <span class="u">learned model</span></h3><div id="physics"><span class="hint">run a physics demo to see the model</span></div></div>
+        <div class="card"><h3>File</h3>
+          <div class="kv"><span>brain id</span><b id="fId">—</b></div>
+          <div class="kv"><span>tier / seed</span><b id="fTier">—</b></div>
+          <div class="kv"><span>sim time</span><b id="fTime">—</b></div>
+          <div class="kv"><span>karyotype</span><b id="fKary">—</b></div>
+          <div class="kv"><span>preset</span><b id="fPreset">—</b></div>
+          <div class="kv"><span>initiatives</span><b id="fInit">—</b></div>
+          <div class="kv"><span>encoder</span><b id="fEnc">—</b></div>
+        </div>
+      </div>
+      <div class="card"><h3>Feed the brain</h3>
+        <div class="row"><label>event</label><input type="text" id="evText" value="a quiet morning by the garden"><button class="btn" id="btnEv">feed event</button></div>
+        <div class="row"><label>valence</label><input class="sm" type="text" id="evVal" value="0.2"><label>arousal</label><input class="sm" type="text" id="evAro" value="0.3"><label>expose</label><input type="text" id="exText" value="the old bridge spans the river" style="flex:2"><input class="sm" type="text" id="exRep" value="3"><button class="btn" id="btnExpose">expose ×N</button></div>
+        <div class="row"><label>ticks</label><input class="sm" type="text" id="tkN" value="1000"><button class="btn" id="btnTick">tick</button><button class="btn" id="btnSleep">sleep</button><button class="btn" id="btnGrow">grow</button><button class="btn" id="btnPhysics">physics demo</button></div>
+      </div>
+      <div class="card"><h3>LLM attach <span class="u" id="llmPill">detached</span></h3>
+        <div class="row"><label>profile</label><select id="llmSel"></select><button class="btn" id="btnLlmActive">activate</button><button class="btn" id="btnLlmTest">test</button><button class="btn" id="btnLlmMock">test (mock)</button></div>
+        <div class="row"><label>name</label><input class="sm" type="text" id="llmName" value="local"><label>endpoint</label><input type="text" id="llmEndpoint" placeholder="https://host/v1"><label>model</label><input class="sm" type="text" id="llmModel" value="qwen3.8-max"></div>
+        <div class="row"><label>key</label><input type="password" id="llmKey" placeholder="api key — llm.json sidecar only, never the brain"><label>temp</label><input class="sm" type="text" id="llmTemp" value="0.8"><button class="btn pri" id="btnLlmSave">save profile</button></div>
+        <div class="row"><label>test</label><b id="llmResult">—</b></div>
+        <div class="hint">chat / doc assist / draw assist use the ACTIVE profile — one code path, state-modulated (§8). No endpoint → honest empty state.</div>
+      </div>
+    </section>
+
+    <!-- ================= WRITING ================= -->
+    <section class="tab" id="tab-writing">
+      <div class="card"><h3>Library & Editor <span class="u" id="docPill">—</span></h3>
+        <div class="w2wrap">
+          <aside class="w2tree" id="wTree">
+            <div class="w2head">STORY <button class="btn sm" id="btnAddChapter" title="add chapter">+ chapter</button></div>
+            <ul id="wStory" class="w2list"></ul>
+            <div class="w2head">NOTES <button class="btn sm" id="btnAddNote" title="add note">+ note</button></div>
+            <ul id="wNotes" class="w2list"></ul>
+            <div class="w2head">JOURNAL <button class="btn sm" id="btnAddJournal" title="open journal">+ journal</button></div>
+            <ul id="wJournal" class="w2list"></ul>
+            <div class="hint" id="wTreeHint" style="margin-top:8px">docs live in writing/&lt;brain&gt;/ · every autosave binds into memory</div>
+          </aside>
+          <div class="w2main">
+            <div class="row" id="docTabs"></div>
+            <div class="w2head-line">
+              <button class="btn sm" id="btnBrainKbd" title="show/hide the brain's keyboard (its writing organ channel — the brain can always write; this only peeks at it)">◧ brain keyboard</button>
+              <span class="hint" id="bkStatus" style="flex:1;color:var(--dim)">peeked — the brain can always write via its writing organ (only you toggle this view)</span>
+            </div>
+            <div id="wBkArea" class="w2kbd" style="display:none">
+              <div class="w2head-line"><span class="w2tag brain">✎ the brain's keyboard</span><span class="hint" style="flex:1">what the brain writes flows through here → binds into the doc (src=writing, no tokens). This panel is only your window on it.</span></div>
+              <textarea id="wBkInput" rows="2" placeholder="(the brain types here — this is a peek at its key channel)…"></textarea>
+              <div class="row" style="margin-top:4px"><button class="btn sm" id="btnBkSend" title="simulate/drive one brain write for testing">write as brain</button><span class="hint" id="bkMsg">the brain's own writes use the same path automatically</span></div>
+            </div>
+            <div class="w2head-line"><span class="w2tag brain" id="wRespTag">✦ brain</span><span class="hint" style="flex:1">the file's reply / continuation</span></div>
+            <div id="wResponse" class="w2resp"><span class="hint">— the brain's response appears here (NovelAI-style chat: replies above, you write below) —</span></div>
+            <div class="w2head-line" style="margin-top:10px"><span class="w2tag">you</span><span class="hint" style="flex:1">write / continue the scene</span></div>
+            <div id="editorHost" class="editor-host"></div>
+            <div class="row">
+              <span class="hint" id="docCounts">0 words · 0 chars</span>
+              <span class="hint" style="margin-left:10px">goal</span><input class="sm" type="text" id="goalN" value="1000" style="width:56px">
+              <div class="bar goalbar"><i class="ok" id="goalBar" style="width:0%"></i></div>
+              <span class="hint" id="docCaret">pos 0</span>
+            </div>
+            <div class="row">
+              <label>mode</label><select id="mdModeSel"><option value="prose">prose</option><option value="md">markdown</option></select>
+              <button class="btn" id="btnFocus">focus</button>
+              <button class="btn" id="btnTypewriter">typewriter</button>
+              <button class="btn pri" id="btnResp">continue from here ⏎</button>
+              <span class="hint" id="wBrainTxt2"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card"><h3>Cursors <span class="u">whose hand</span></h3>
+        <div class="kv"><span class="cur you">▍you</span><b>your caret</b></div>
+        <div class="kv"><span class="cur brain" id="wBrainCur">▍—</span><b id="wBrainPos">no document yet</b></div>
+        <div class="hint" id="wBrainTxt"></div>
+        <div class="hint">the editor shows both cursors — the file's cursor sits at its last written block.</div>
+      </div>
+      <div class="card"><h3>Note</h3><p class="hint">Writing binds into memory with provenance (src=writing) and develops a style fingerprint across documents.</p></div>
+
+      <!-- ===== W3: LOREBOOK & ENTITY SHEETS ===== -->
+      <div class="card"><h3>Lorebook <span class="u" id="lbCount">0 entries</span></h3>
+        <div class="row">
+          <label>title</label><input type="text" id="lbTitle" value="The Old Bridge">
+          <label>keywords</label><input type="text" id="lbKeywords" value="bridge, spans" placeholder="comma-separated triggers">
+        </div>
+        <div class="row"><label>body</label><input type="text" id="lbBody" value="A stone span over the river, remembered in every scene." style="flex:3"></div>
+        <div class="row">
+          <label>tags</label><input type="text" id="lbTags" value="location" placeholder="tags">
+          <button class="btn pri" id="btnLbAdd">+ add entry</button>
+        </div>
+        <div id="lbList" class="w2list"></div>
+        <div class="hint" id="lbPreviewHint">insertion preview: type a paragraph, then fire preview</div>
+      </div>
+
+      <div class="card"><h3>Entity Sheets <span class="u" id="enCount">0 entities</span></h3>
+        <div class="row">
+          <label>name</label><input type="text" id="enName" value="Elena">
+          <label>kind</label><input class="sm" type="text" id="enKind" value="character">
+        </div>
+        <div class="row"><label>fields</label><input type="text" id="enFields" value="hair: auburn; origin: the valley" placeholder="key: value; key: value" style="flex:3"></div>
+        <div class="row">
+          <label>rel to</label><input type="text" id="enRelTo" value="" placeholder="other entity name">
+          <button class="btn pri" id="btnEnAdd">+ add entity</button>
+        </div>
+        <div id="enList" class="w2list"></div>
+        <div class="hint">portrait slot &amp; map view deferred — free-form fields + relationship lines first.</div>
+      </div>
+      <div class="card"><h3>Insertion Preview</h3>
+        <textarea id="lbProbe" rows="3" style="width:100%;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px;font:12px/1.4 monospace">The old bridge spans the river, and the valley remembers.</textarea>
+        <div class="row" style="margin-top:6px"><button class="btn pri" id="btnLbPrev">which entries fire?</button><span class="hint" id="lbPrevR"></span></div>
+      </div>
+
+      <!-- ===== W4: STRUCTURE TOOLS ===== -->
+      <div class="card"><h3>Structure <span class="u">outline · timeline</span></h3>
+        <div class="row">
+          <button class="btn pri" id="stModeOutline">outline</button>
+          <button class="btn" id="stModeTimeline">timeline</button>
+          <span style="flex:1"></span>
+          <button class="btn" id="stZoomOut" title="zoom out">−</button>
+          <button class="btn" id="stZoomIn" title="zoom in">+</button>
+        </div>
+        <div id="stOutline"></div>
+        <div id="stTimeline" style="display:none"></div>
+        <div class="hint">beat sheet: drag cards to reorder (tree updates) · dblclick a card to edit synopsis / status / in-story date · timeline places scenes by in-story date, fallback chapter order, zoomable.</div>
+      </div>
+
+      <!-- ===== W5: VERSION HISTORY ===== -->
+      <div class="card"><h3>Version History <span class="u" id="hActive">—</span></h3>
+        <div class="row">
+          <button class="btn pri" id="hSaveManual">save version</button>
+          <label>auto every</label><input class="sm" type="text" id="hAutoN" value="100" style="width:52px"><span class="hint"> words</span>
+          <span class="hint" id="hMsg"></span>
+        </div>
+        <ul id="hList" class="w2list"></ul>
+        <div id="hView" style="margin-top:6px"></div>
+        <div class="hint">snapshots per doc · <b>●</b> manual · <b>∘</b> auto · <b>↩</b> restore · <b>⬌</b> diff vs previous (green=added, red=removed)</div>
+      </div>
+
+      <!-- ===== W6: ANALYSIS & CONTINUITY ===== -->
+      <div class="card"><h3>Analysis &amp; Continuity <span class="u" id="anDoc">—</span></h3>
+        <div class="row">
+          <button class="btn pri" id="btnAnRefresh">analyze</button>
+          <span class="hint">source:</span><textarea id="anText" rows="2" style="flex:1;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px;font:12px/1.4 monospace"></textarea>
+        </div>
+        <div class="row"><span class="hint">style</span><div id="anStyle" style="flex:1"></div></div>
+        <div class="row"><span class="hint">continuity</span><div id="anCont" style="flex:1"></div></div>
+      </div>
+
+      <!-- ===== W7: EXPORT / IMPORT ===== -->
+      <div class="card"><h3>Export / Import <span class="u" id="exMsg">—</span></h3>
+        <div class="row">
+          <label>format</label><select id="exFmt">
+            <option value="md">Markdown (.md)</option>
+            <option value="txt">Plain text (.txt)</option>
+            <option value="html">Styled HTML</option>
+            <option value="json">Project JSON</option>
+          </select>
+          <button class="btn" id="btnExDoc" title="export the currently open doc only">export doc</button>
+          <button class="btn pri" id="btnExAll" title="export the whole project/library">export project</button>
+        </div>
+        <div class="row">
+          <label>import</label>
+          <select id="exImportKind"><option value="text">.md / .txt → new doc</option><option value="project">project JSON → restore</option></select>
+          <input type="file" id="exImportFile" accept=".md,.txt,.json,.markdown" style="flex:1">
+        </div>
+        <div class="hint">export downloads a file · import reads a local file · project JSON round-trips the whole library + doc texts</div>
+      </div>
+
+      <!-- ===== W8: BRAIN INTEGRATION PANEL ===== -->
+      <div class="card"><h3>Brain — what it remembers <span class="u" id="bpDoc">—</span></h3>
+        <div class="row">
+          <button class="btn pri" id="btnBpRefresh">refresh retrieval</button>
+          <label>mode</label><select id="bpMode">
+            <option value="prose">prose</option>
+            <option value="journal">journal</option>
+            <option value="worldbuilding">worldbuilding</option>
+            <option value="lorebook">lorebook</option>
+            <option value="markdown">markdown</option>
+          </select>
+          <span class="hint" id="bpModeHint">mode gates how writing binds</span>
+        </div>
+        <div id="bpRetrieve"></div>
+        <div class="row" style="margin-top:8px"><span class="hint">style fingerprint</span><div id="bpRadar" style="flex:1"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= DRAWING ================= -->
+    <section class="tab" id="tab-drawing">
+      <div class="card"><h3>Canvas <span class="u">D5 select & transform</span> <span class="hint" id="cvStatus">stylus/pen pressure = width; mouse = constant</span></h3>
+        <div class="row">
+          <button class="btn" id="cvUndo" title="undo stroke">↶</button>
+          <button class="btn" id="cvRedo" title="redo stroke">↷</button>
+          <button class="btn" id="cvFit" title="fit canvas">fit</button>
+          <button class="btn" id="cv100" title="100% zoom">100%</button>
+          <button class="btn pri" id="cvSave" title="save stroke into the brain">save ⤓</button>
+          <button class="btn" id="cvClear">clear</button>
+        </div>
+        <div class="row" style="flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#0d141c">
+          <label style="min-width:0">tool</label>
+          <div class="cv-tools" id="cvTools">
+            <button class="btn sm sel" data-tool="brush" title="paint">🖌 brush</button>
+            <button class="btn sm" data-tool="rect" title="rect selection">▭ sel</button>
+            <button class="btn sm" data-tool="ellipse" title="ellipse selection">◯ sel</button>
+            <button class="btn sm" data-tool="lasso" title="lasso selection">⤢ lasso</button>
+            <button class="btn sm" data-tool="wand" title="magic wand">✦ wand</button>
+            <button class="btn sm" data-tool="fill" title="bucket fill">🪣 fill</button>
+            <button class="btn sm" data-tool="gradient" title="gradient">◨ gradient</button>
+            <button class="btn sm" data-tool="line" title="straight line">∕ line</button>
+            <button class="btn sm" data-tool="rect-shape" title="rectangle">▭ shape</button>
+            <button class="btn sm" data-tool="ellipse-shape" title="ellipse">◯ shape</button>
+          </div>
+          <button class="btn sm" id="cvSymV" title="vertical symmetry">⇌ sym</button>
+          <button class="btn sm" id="cvGuide" title="toggle perspective guide">◈ guide</button>
+          <label style="min-width:0">outline</label><select id="cvShapeFill"><option value="outline">outline</option><option value="fill">fill</option></select>
+          <button class="btn sm" id="cvSelectAll" title="select all">all</button>
+          <button class="btn sm" id="cvDeselect" title="deselect">✕</button>
+          <button class="btn sm" id="cvInvert" title="invert selection">⇅</button>
+          <label style="min-width:0">tolerance</label><input type="range" id="cvTolerance" min="0" max="100" value="24" style="flex:1;min-width:50px"><span class="hint" id="cvTolV">24</span>
+          <label style="min-width:0">contig</label><input type="checkbox" id="cvContig" checked>
+          <span class="cv-sep"></span>
+          <button class="btn sm" id="cvMoveSel" title="move selection content">✥ move</button>
+          <button class="btn sm" id="cvScaleSel" title="scale selection">⤢ scale</button>
+          <button class="btn sm" id="cvRotateSel" title="rotate selection">⟳</button>
+          <button class="btn sm" id="cvFlipH" title="flip horizontal">⇋</button>
+          <button class="btn sm" id="cvFlipV" title="flip vertical">⇅</button>
+          <button class="btn sm" id="cvFeatherSel" title="feather selection">⫱ feather</button>
+          <button class="btn sm pri" id="cvApplyX" title="commit transform (Enter)">✓ apply</button>
+          <button class="btn sm" id="cvCancelX" title="cancel transform (Esc)">✕ cancel</button>
+        </div>
+        <div class="row" style="flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#0d141c">
+          <label style="min-width:0">brush</label>
+          <select id="cvPresetSel" title="brush preset"></select>
+          <button class="btn sm" id="cvSaveCustom" title="save current params as a new preset">save preset</button>
+          <button class="btn sm" id="cvDeleteCustom" title="delete custom preset">✕</button>
+          <label style="min-width:0">mode</label>
+          <select id="cvModeSel" title="brush mode"><option value="paint">paint</option><option value="erase-hard">erase hard</option><option value="erase-soft">erase soft</option></select>
+          <label style="min-width:0">color</label>
+          <input type="color" id="cvColor" value="#ff6633" style="width:38px;padding:1px">
+          <button class="btn sm" id="cvEyedrop" title="pick color from canvas">🡇 pick</button>
+          <button class="btn sm" id="cvSwap" title="swap foreground/background (X)">⇄</button>
+          <input id="cvHex" class="sm" style="width:76px" value="#ff6633" title="hex">
+          <label style="min-width:0">size</label><input type="range" id="cvSize" min="1" max="80" value="24" style="flex:1;min-width:70px"><span class="hint" id="cvSizeV"></span>
+          <label style="min-width:0">min</label><input type="range" id="cvMinSize" min="0" max="40" value="2" style="flex:1;min-width:50px">
+          <label style="min-width:0">op</label><input type="range" id="cvOp" min="0.02" max="1" step="0.02" value="1" style="flex:1;min-width:50px">
+          <label style="min-width:0">flow</label><input type="range" id="cvFlow" min="0.05" max="1" step="0.05" value="1" style="flex:1;min-width:50px">
+          <label style="min-width:0">hard</label><input type="range" id="cvHard" min="0" max="1" step="0.05" value="1" style="flex:1;min-width:50px">
+          <label style="min-width:0">space</label><input type="range" id="cvSpace" min="0.08" max="1.5" step="0.02" value="0.35" style="flex:1;min-width:50px">
+          <label style="min-width:0">stab</label><input type="range" id="cvStab" min="0" max="7" value="4" style="flex:1;min-width:50px"><span class="hint" id="cvStabV">S4</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:stretch">
+          <div style="flex:1;height:min(62vh,640px);position:relative;border-radius:8px;overflow:hidden;border:1px solid #d0d0d0">
+            <canvas id="cvCanvas" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;background:#ffffff;touch-action:none"></canvas>
+          </div>
+          <div class="cv-panel">
+            <div class="cv-panel-head">LAYERS <span class="hint" id="cvActiveName">—</span></div>
+            <div id="cvLayers" class="cv-layers"></div>
+            <div class="cv-panel-ops">
+              <button class="btn sm" id="cvAddLayer" title="add layer above">+</button>
+              <button class="btn sm" id="cvAddGroup" title="add group (folder)">⊞</button>
+              <button class="btn sm" id="cvDupLayer" title="duplicate">⧉</button>
+              <button class="btn sm" id="cvDelLayer" title="delete">🗑</button>
+              <button class="btn sm" id="cvUpLayer" title="move up">▲</button>
+              <button class="btn sm" id="cvDownLayer" title="move down">▼</button>
+              <button class="btn sm" id="cvMergeDown" title="merge down">⤓↓</button>
+              <button class="btn sm" id="cvFlatten" title="flatten visible">☰</button>
+              <button class="btn sm" id="cvAddMask" title="add layer mask (white)">▤ mask</button>
+              <button class="btn sm" id="cvClipToggle" title="clip layer to the one below (SAI)">◉ clip</button>
+            </div>
+            <div class="hint" style="margin-top:6px">blend modes: normal · multiply · screen · overlay · luminosity · add · drag rows to reorder · 👁/🔒 per layer</div>
+          </div>
+        </div>
+        <div class="hint">space/middle-drag to pan · wheel to zoom (1%–3200%) · tablet pressure controls width · stabilizer smooths the line</div>
+      </div>
+      <div class="card"><h3>Color <span class="u">D4 picker</span> <span class="hint">hue</span></h3>
+        <div class="row">
+          <canvas id="cvHue" width="180" height="14" title="hue strip" style="cursor:crosshair;border:1px solid var(--line);border-radius:4px"></canvas>
+          <canvas id="cvSV" width="120" height="90" title="saturation/value square" style="cursor:crosshair;border:1px solid var(--line);border-radius:4px"></canvas>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="kv"><span>fg</span><b id="cvFgv" style="color:var(--txt)">#ff6633</b></div>
+            <div class="kv"><span>bg</span><b id="cvBgv" style="color:var(--txt)">#ffffff</b></div>
+          </div>
+        </div>
+        <div class="row" style="flex-wrap:wrap">
+          <label style="min-width:0">hex</label><input id="cvHex2" class="sm" style="width:92px" value="#ff6633" title="hex input">
+          <label style="min-width:0">swatches</label>
+          <div id="cvPalette" class="cv-palette"></div>
+          <button class="btn sm" id="cvSaveSwatch" title="save current fg as a swatch">+ swatch</button>
+          <button class="btn sm" id="cvDelSwatch" title="delete selected swatch">‐</button>
+          <button class="btn sm" id="cvResetPal" title="reset to default palette">default</button>
+        </div>
+      </div>
+      <div class="card"><h3>Reference <span class="u">D7 board</span></h3>
+        <div class="row">
+          <input type="file" id="cvRefFile" accept="image/*" style="flex:1">
+          <button class="btn sm" id="cvRefClear">clear</button>
+        </div>
+        <label class="hint">opacity</label><input type="range" id="cvRefOp" min="0.05" max="1" step="0.05" value="0.5" style="width:100%">
+        <div id="cvRefBoard" class="cv-ref"><span class="hint">load a reference image here (sits beside the canvas, non-destructive)</span></div>
+      </div>
+      <div class="card"><h3>Cursors <span class="u">whose hand</span></h3>
+        <div class="kv"><span class="cur you">✛ you</span><b>your brush</b></div>
+        <div class="kv"><span class="cur brain" id="dBrainCur">✛ —</span><b id="dBrainPos">no strokes yet</b></div>
+        <div class="hint">the brain's brush marker sits at its last stroke (canvas twin-cursor, synced from the state snapshot).</div>
+      </div>
+      <div class="card"><h3>Motif memory</h3><div id="motifBox"><span class="hint">strokes become motifs — shape families the file remembers</span></div></div>
+    </section>
+
+    <!-- ================= VOICE ================= -->
+    <section class="tab" id="tab-voice">
+      <div class="face-wrap">
+        <div class="card"><h3>The face <span class="u">reacts to state</span></h3><canvas id="face" width="320" height="320"></canvas></div>
+        <div class="card"><h3>Voice</h3>
+          <div class="kv"><span>pitch</span><b id="voPitch">—</b></div>
+          <div class="kv"><span>range</span><b id="voRange">—</b></div>
+          <div class="kv"><span>maturity</span><b id="voMaturity">—</b></div>
+          <div class="kv"><span>heard voices</span><b id="voHeard">—</b></div>
+          <div class="kv"><span>mimicry gate</span><b id="voGate">—</b></div>
+          <div class="row" style="margin-top:10px"><label>line</label><input type="text" id="spText" value="good morning"><button class="btn" id="btnSpeak">speak</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= BODY ================= -->
+    <section class="tab" id="tab-body">
+      <div class="card"><h3>Embodiment</h3>
+        <div class="row"><label>touch</label><input class="sm" type="text" id="bdP" value="0.35"><input class="sm" type="text" id="bdV" value="0.2"><button class="btn" id="btnTouch">touch</button></div>
+        <div class="row"><label>motion</label><input type="text" id="bdM" value="0,0,-1"><button class="btn" id="btnMotion">motion</button></div>
+        <div class="row"><label>interocept</label><input class="sm" type="text" id="bdI" value="0.4"><button class="btn" id="btnIntero">interocept</button><button class="btn" id="btnBodyStatus">body status</button></div>
+        <div class="hint">sensory channels calibrate with use; cortex regions light in the Brain tab.</div>
+      </div>
+    </section>
+
+    <!-- ================= NETWORK ================= -->
+    <section class="tab" id="tab-network">
+      <div class="card"><h3>Sessions &amp; relationships</h3>
+        <div class="row"><label>peer</label><input type="text" id="ntPeer" value="peer-1"><input type="text" id="ntKey" placeholder="peer key (hex)"><button class="btn" id="btnNetKey">my key</button></div>
+        <div class="row"><button class="btn" id="btnNetPair">pair</button><button class="btn" id="btnNetStatus">status</button><button class="btn" id="btnNetDisc">discoverable</button></div>
+        <div class="row"><label>session</label><input class="sm" type="text" id="ntSid" value="1"><button class="btn" id="btnNetEst">establish</button></div>
+        <div class="row"><label>message</label><input type="text" id="ntMsg" value="hello from the file"><button class="btn" id="btnNetSend">send</button><button class="btn" id="btnNetInject">inject</button></div>
+      </div>
+      <div class="card"><h3>Relationships</h3><div id="rels"><span class="hint">pair with another brain to see bonds form</span></div></div>
+    </section>
+
+    <!-- ================= REPRODUCTION ================= -->
+    <section class="tab" id="tab-repro">
+      <div class="card"><h3>Union &amp; birth</h3>
+        <div class="row"><label>session</label><input class="sm" type="text" id="rpSid" value="1"><button class="btn pri" id="btnRpPropose">propose union</button></div>
+        <div class="row"><label>sender</label><input type="text" id="rpFrom" placeholder="sender.brain (their file)"><button class="btn" id="btnRpRelayProp">relay proposal</button><button class="btn" id="btnRpRelayAcc">relay accept</button></div>
+        <div class="row"><label>out</label><input type="text" id="rpOut" value="child.brain"><button class="btn pri" id="btnRpBirth">birth child</button><button class="btn" id="btnRpGrow">grow</button></div>
+        <div class="hint">attraction is chemistry: the peer responds to your hormone profile (complementarity), or not. Two ova cannot conceive.</div>
+      </div>
+      <div class="card"><h3>Lineage</h3><div id="lineage"><span class="hint">children record their parents — data only, kin recognition is chemical</span></div></div>
+    </section>
+  </div>
+
+  <aside id="activity">
+    <div class="act-head" id="actHead" title="show/hide activity log">
+      <span class="dot"></span> activity <span class="act-toggle">▾</span>
+    </div>
+    <div class="act-body">
+      <div id="log">— press a command —</div>
+    </div>
+  </aside>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "codemirror": "./lib/cm/codemirror-meta.js",
+    "@codemirror/state": "./lib/cm/@codemirror-state.js",
+    "@codemirror/view": "./lib/cm/@codemirror-view.js",
+    "@codemirror/commands": "./lib/cm/@codemirror-commands.js",
+    "@codemirror/language": "./lib/cm/@codemirror-language.js",
+    "@codemirror/search": "./lib/cm/@codemirror-search.js",
+    "@codemirror/autocomplete": "./lib/cm/@codemirror-autocomplete.js",
+    "@codemirror/lint": "./lib/cm/@codemirror-lint.js",
+    "@codemirror/lang-markdown": "./lib/cm/@codemirror-lang-markdown.js",
+    "@codemirror/lang-html": "./lib/cm/@codemirror-lang-html.js",
+    "@codemirror/lang-css": "./lib/cm/@codemirror-lang-css.js",
+    "@codemirror/lang-javascript": "./lib/cm/@codemirror-lang-javascript.js",
+    "@lezer/common": "./lib/cm/@lezer-common.js",
+    "@lezer/highlight": "./lib/cm/@lezer-highlight.js",
+    "@lezer/lr": "./lib/cm/@lezer-lr.js",
+    "@lezer/markdown": "./lib/cm/@lezer-markdown.js",
+    "@lezer/html": "./lib/cm/@lezer-html.js",
+    "@lezer/css": "./lib/cm/@lezer-css.js",
+    "@lezer/javascript": "./lib/cm/@lezer-javascript.js",
+    "style-mod": "./lib/cm/style-mod.js",
+    "w3c-keyname": "./lib/cm/w3c-keyname.js",
+    "crelt": "./lib/cm/crelt.js"
+  }
+}
+</script>
+<script src="app.js"></script>
+<script src="tabs/brain.js"></script>
+<script src="tabs/writing.js"></script>
+<script src="tabs/lorebook.js"></script>
+<script src="tabs/structure.js"></script>
+<script src="tabs/history.js"></script>
+<script src="tabs/analysis.js"></script>
+<script src="tabs/export.js"></script>
+<script src="tabs/brainpanel.js"></script>
+<script src="tabs/drawing.js"></script>
+<script src="tabs/canvas.js"></script>
+<script src="tabs/color.js"></script>
+<script src="tabs/select.js"></script>
+<script src="tabs/fillgrad.js"></script>
+<script src="tabs/assist.js"></script>
+<script src="tabs/voice.js"></script>
+<script src="tabs/body.js"></script>
+<script src="tabs/network.js"></script>
+<script src="tabs/repro.js"></script>
+<script type="module" src="lib/editor.js"></script>
+</body>
+</html>

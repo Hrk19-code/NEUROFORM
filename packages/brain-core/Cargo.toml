@@ -1,0 +1,15 @@
+[package]
+name = "brain-core"
+version.workspace = true
+edition.workspace = true
+description = "Neuroform brain engine: tick loop, global latent state, modulators, NF1 format, capacity ledger"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+blake2 = "0.10"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+hex = "0.4"
+
+[dev-dependencies]

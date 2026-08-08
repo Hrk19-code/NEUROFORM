@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neuroform — Face</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #101418; color: #dfe6ee; display: flex; gap: 20px; padding: 20px; }
+  canvas#face { background: radial-gradient(circle at 50% 35%, #1b232c, #0c0f13); border-radius: 14px; border: 1px solid #26303c; }
+  .panel { background: #161c24; border: 1px solid #26303c; border-radius: 14px; padding: 16px; width: 300px; }
+  .panel h2 { margin: 0 0 10px; font-size: 15px; color: #8fd3ff; }
+  .panel h3 { margin: 12px 0 6px; font-size: 12px; color: #6b7c8d; text-transform: uppercase; letter-spacing: .08em; }
+  label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin: 5px 0; color: #b9c6d2; }
+  input[type=range] { width: 150px; }
+  input[type=color] { width: 42px; height: 24px; border: none; background: none; }
+  select { background: #1d2530; color: #dfe6ee; border: 1px solid #33404f; border-radius: 6px; padding: 3px; }
+  button { background: #1d6fb8; color: #fff; border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #2584d6; }
+  button.danger { background: #7a2c2c; } button.danger:hover { background: #9a3838; }
+  #state { font-family: ui-monospace, monospace; font-size: 11px; color: #8fa3b5; white-space: pre-wrap; max-height: 180px; overflow: auto; background: #10141a; border-radius: 8px; padding: 8px; }
+  #cam-ind { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #555; margin-right: 6px; }
+  #cam-ind.on { background: #e33; box-shadow: 0 0 8px #e33; }
+  video { display: none; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .muted { color: #6b7c8d; font-size: 11px; }
+</style>
+</head>
+<body>
+<canvas id="face" width="440" height="440"></canvas>
+<div class="panel">
+  <h2>Face</h2>
+  <div class="row" style="margin-bottom:8px">
+    <button id="btn-load">Load state.json</button>
+    <button id="btn-demo">Demo cycle</button>
+    <button id="btn-cam">Camera gaze</button>
+    <span id="cam-ind"></span>
+  </div>
+  <h3>Appearance (customizable)</h3>
+  <label>Preset <select id="preset">
+    <option value="round">Round</option>
+    <option value="oval">Oval</option>
+    <option value="square">Square</option>
+    <option value="soft">Soft</option>
+  </select></label>
+  <label>Skin <input type="color" id="skin" value="#e8b88a"></label>
+  <label>Eyes <input type="color" id="eye" value="#3a6ea5"></label>
+  <label>Brows <input type="color" id="brow" value="#5a4232"></label>
+  <label>Hair <input type="color" id="hair" value="#3a2c22"></label>
+  <label>Hair style <select id="hairstyle">
+    <option value="none">None</option>
+    <option value="short">Short</option>
+    <option value="long">Long</option>
+    <option value="fluff">Fluff</option>
+  </select></label>
+  <h3>Live state</h3>
+  <div id="state">(no state loaded — use "Load state.json", "Demo cycle", or run:<br><span class="muted">neuroform voice demo.brain speak --text "..." --face-state state.json</span>)</div>
+</div>
+<video id="cam" autoplay playsinline></video>
+<script>
+"use strict";
+const cv = document.getElementById("face"), ctx = cv.getContext("2d");
+const stateEl = document.getElementById("state");
+const camInd = document.getElementById("cam-ind");
+let S = null, camOn = false, camStream = null, lastCamPos = null;
+let blinkT = 0, blinkDur = 0, gazeX = 0, gazeY = 0, gazeWander = 0, demoIdx = 0, demoStep = 0;
+let mouse = { x: 0.5, y: 0.5 };
+
+// ---------- face rendering ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function headPath(preset) {
+  ctx.beginPath();
+  if (preset === "square") ctx.roundRect(120, 70, 200, 250, 40);
+  else if (preset === "oval") ctx.ellipse(220, 195, 105, 145, 0, 0, Math.PI * 2);
+  else if (preset === "soft") { ctx.ellipse(220, 200, 115, 140, 0, 0, Math.PI * 2); }
+  else ctx.ellipse(220, 200, 108, 135, 0, 0, Math.PI * 2); // round
+}
+
+function draw(now) {
+  const w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  // background
+  const g = ctx.createRadialGradient(220, 150, 20, 220, 200, 320);
+  g.addColorStop(0, "#1b232c"); g.addColorStop(1, "#0c0f13");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+
+  const st = S || { mouth: { open: 0.12, rate: 150, speaking: false }, expression: { valence: 0, arousal: 0.3, fatigue: 0.2, curiosity: 0.4, brows: 0.3 }, posture: "upright", voice: { pitch: 0.5, warmth: 0.5 }, coloring: "steady" };
+  const ex = st.expression || {};
+  const valence = ex.valence || 0, arousal = ex.arousal || 0.3, fatigue = ex.fatigue || 0.2, curiosity = ex.curiosity || 0.4;
+  const mouth = st.mouth || {};
+  const speaking = !!mouth.speaking;
+
+  // blink: rate rises with fatigue
+  const blinkRate = lerp(1.4, 0.25, fatigue); // blinks/sec inverse
+  blinkT -= now / 1000;
+  if (blinkT <= 0) { blinkT = blinkRate; blinkDur = 0.09 + Math.random() * 0.06; }
+  const blink = blinkDur > 0 ? Math.min(1, (blinkDur - (now % 300) / 300 + 1) % 1) : 0;
+  blinkDur -= now / 1000 * 0; // decay handled below
+  if (blinkDur > 0) blinkDur -= 0.001;
+
+  // head tilt from posture
+  const tilt = st.posture === "lying" ? 0.5 : st.posture === "moving" ? -0.15 : st.posture === "transport" ? 0.22 : 0;
+  ctx.save();
+  ctx.translate(220, 200);
+  ctx.rotate(tilt * Math.sin(now / 900) * 0.3);
+  ctx.translate(-220, -200);
+
+  // hair behind
+  ctx.fillStyle = document.getElementById("hair").value;
+  const hs = document.getElementById("hairstyle").value;
+  if (hs !== "none") {
+    ctx.beginPath();
+    if (hs === "long") ctx.ellipse(220, 195, 112, 155, 0, 0, Math.PI * 2);
+    else if (hs === "fluff") { ctx.arc(220, 150, 120, 0, Math.PI * 2); ctx.arc(160, 190, 90, 0, Math.PI * 2); ctx.arc(280, 190, 90, 0, Math.PI * 2); }
+    else ctx.ellipse(220, 160, 112, 110, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+  }
+  // head
+  ctx.fillStyle = document.getElementById("skin").value;
+  headPath(document.getElementById("preset").value);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 2; ctx.stroke();
+
+  // gaze target: mouse or camera-face centroid
+  let gx = gazeX, gy = gazeY;
+  const target = camOn && lastCamPos ? lastCamPos : mouse;
+  gx = lerp(gx, target.x, 0.08); gy = lerp(gy, target.y, 0.08);
+  // curiosity wander
+  gazeWander += (Math.random() - 0.5) * 0.02;
+  const wanderAmt = curiosity * 0.5;
+  gx += Math.sin(now / 700) * wanderAmt * 0.08 + gazeWander * 0.05;
+  gy += Math.cos(now / 900) * wanderAmt * 0.06;
+  gx = clamp(gx, -0.25, 0.25); gy = clamp(gy, -0.2, 0.2);
+
+  // eyes
+  const eyeY = 165, eyeDX = 46;
+  const eyeColor = document.getElementById("eye").value;
+  for (const s of [-1, 1]) {
+    const ex0 = 220 + s * eyeDX, ey0 = eyeY;
+    ctx.fillStyle = "#f7f2ec";
+    ctx.beginPath(); ctx.ellipse(ex0, ey0, 24, 26 + (blink ? 0 : 0) , 0, 0, Math.PI * 2); ctx.fill();
+    // lid droop with fatigue
+    ctx.fillStyle = document.getElementById("skin").value;
+    ctx.beginPath();
+    ctx.ellipse(ex0, ey0 - 6, 26, 14 + fatigue * 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (blink > 0.5) { // closed
+      ctx.strokeStyle = "#5a4232"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(ex0 - 18, ey0); ctx.lineTo(ex0 + 18, ey0); ctx.stroke();
+    } else {
+      ctx.fillStyle = eyeColor;
+      ctx.beginPath(); ctx.arc(ex0 + gx * 22, ey0 + gy * 14, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#14181c";
+      ctx.beginPath(); ctx.arc(ex0 + gx * 22, ey0 + gy * 14, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      ctx.beginPath(); ctx.arc(ex0 + gx * 22 - 3, ey0 + gy * 14 - 3, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // brows: tension
+  const browT = ex.brows || 0;
+  ctx.strokeStyle = document.getElementById("brow").value; ctx.lineWidth = 5; ctx.lineCap = "round";
+  for (const s of [-1, 1]) {
+    const bx = 220 + s * 46, by = 128 - browT * 8 + (valence < -0.2 ? 4 : 0);
+    ctx.beginPath();
+    ctx.moveTo(bx - 20, by + (valence < -0.2 ? -4 : 0));
+    ctx.quadraticCurveTo(bx, by - 4 + browT * 6, bx + 20, by + (valence > 0.2 ? -4 : 0));
+    ctx.stroke();
+  }
+  // nose
+  ctx.fillStyle = "rgba(0,0,0,.10)";
+  ctx.beginPath(); ctx.ellipse(220, 205, 7, 12, 0, 0, Math.PI * 2); ctx.fill();
+  // mouth: openness from energy, curve from valence
+  const open = mouth.open || 0.12;
+  const smile = clamp(valence, -1, 1);
+  const mouthY = 250;
+  ctx.fillStyle = "#8c3a45";
+  ctx.beginPath();
+  if (open > 0.25) { // open (speaking)
+    ctx.ellipse(220, mouthY, 30, 8 + open * 26, 0, 0, Math.PI * 2);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(190, mouthY + smile * 6);
+    ctx.quadraticCurveTo(220, mouthY + 10 + smile * 14 + (open * 10), 250, mouthY + smile * 6);
+    ctx.quadraticCurveTo(220, mouthY + 2, 190, mouthY + smile * 6);
+  }
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.2)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+
+  // speaking indicator
+  ctx.fillStyle = "rgba(141,211,255,.9)"; ctx.font = "12px system-ui"; ctx.textAlign = "center";
+  ctx.fillText(speaking ? "…" : "", 220, 30);
+  stateEl.innerHTML = JSON.stringify(st, null, 1).slice(0, 900);
+  requestAnimationFrame(draw);
+}
+
+// ---------- state sources ----------
+document.getElementById("btn-load").onclick = () => {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json";
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { S = JSON.parse(t); }); };
+  inp.click();
+};
+document.getElementById("btn-demo").onclick = () => {
+  const states = [
+    { mouth: { open: 0.1, rate: 130, speaking: false }, expression: { valence: 0.5, arousal: 0.25, fatigue: 0.15, curiosity: 0.5, brows: 0.2 }, posture: "upright", voice: { pitch: 0.55 }, coloring: "bright" },
+    { mouth: { open: 0.75, rate: 170, speaking: true }, expression: { valence: 0.2, arousal: 0.55, fatigue: 0.2, curiosity: 0.7, brows: 0.5 }, posture: "upright", voice: { pitch: 0.5 }, coloring: "steady" },
+    { mouth: { open: 0.1, rate: 95, speaking: false }, expression: { valence: -0.45, arousal: 0.6, fatigue: 0.7, curiosity: 0.2, brows: 0.8 }, posture: "lying", voice: { pitch: 0.42 }, coloring: "troubled" },
+    { mouth: { open: 0.15, rate: 110, speaking: false }, expression: { valence: 0.05, arousal: 0.15, fatigue: 0.4, curiosity: 0.35, brows: 0.2 }, posture: "still", voice: { pitch: 0.5 }, coloring: "calm" },
+  ];
+  demoIdx = (demoIdx + 1) % states.length;
+  S = states[demoIdx];
+};
+// camera gaze: permissioned, visible indicator, no storage
+document.getElementById("btn-cam").onclick = async () => {
+  if (camOn) { camStream.getTracks().forEach(t => t.stop()); camOn = false; camInd.className = ""; lastCamPos = null; return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    const v = document.getElementById("cam"); v.srcObject = camStream;
+    camOn = true; camInd.className = "on";
+    // crude face-region tracking: skin-color centroid in the camera frame
+    const track = () => {
+      if (!camOn) return;
+      const v = document.getElementById("cam");
+      if (v.readyState >= 2) {
+        const c = document.createElement("canvas"); c.width = 160; c.height = 120;
+        const cx = c.getContext("2d"); cx.drawImage(v, 0, 0, 160, 120);
+        const d = cx.getImageData(0, 0, 160, 120).data;
+        let sx = 0, sy = 0, n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          if (r > 90 && r > g * 1.25 && r > b * 1.25 && g > 40) { sx += (i / 4) % 160; sy += Math.floor((i / 4) / 160); n++; }
+        }
+        if (n > 40) { lastCamPos = { x: (sx / n / 160 - 0.5) * 0.8, y: (sy / n / 120 - 0.5) * 0.8 }; }
+      }
+      setTimeout(track, 120);
+    };
+    track();
+  } catch (e) { alert("camera denied or unavailable: " + e.message); }
+};
+cv.addEventListener("mousemove", e => {
+  const r = cv.getBoundingClientRect();
+  mouse = { x: ((e.clientX - r.left) / r.width - 0.5) * 0.8, y: ((e.clientY - r.top) / r.height - 0.5) * 0.8 };
+});
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

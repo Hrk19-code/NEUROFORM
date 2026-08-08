@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cortex Canvas — Neuroform brain visualization (M0 scaffold)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0b0e14; color: #c8d2e0; font-family: "Segoe UI", system-ui, sans-serif; }
+  header { padding: 12px 20px; border-bottom: 1px solid #1c2333; display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 15px; margin: 0; color: #8ab4f8; font-weight: 600; }
+  header .meta { font-size: 12px; color: #64748b; }
+  #canvas-wrap { display: flex; justify-content: center; padding: 16px; }
+  canvas { background: radial-gradient(ellipse at center, #101827 0%, #0b0e14 75%); border: 1px solid #1c2333; border-radius: 12px; }
+  #legend { max-width: 960px; margin: 0 auto 20px; padding: 0 20px; font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  #legend b { color: #e2e8f0; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px 0 12px; vertical-align: -1px; }
+  #status { font-size: 12px; color: #f59e0b; padding: 0 20px 12px; }
+  #honesty { font-size: 11px; color: #475569; padding: 0 20px 20px; text-align: center; }
+  .tooltip { position: absolute; pointer-events: none; background: #1c2333; border: 1px solid #334155;
+             padding: 6px 10px; border-radius: 6px; font-size: 12px; display: none; z-index: 10; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cortex Canvas</h1>
+  <span class="meta" id="meta">no snapshot loaded</span>
+</header>
+<div id="status">M0 scaffold: renders a static state snapshot. Live 10 Hz binding arrives in M1.</div>
+<div id="canvas-wrap"><canvas id="cv" width="960" height="540"></canvas></div>
+<div class="tooltip" id="tip"></div>
+<div id="legend">
+  <b>Hemisphere L</b> (detail/sequence) and <b>Hemisphere R</b> (context/space) — processing emphasis, not personality.
+  Node brightness = the bound metric; valence shifts limbic hue (warm = positive). Callosum bridge opacity = cross-hemisphere
+  integration estimate (M0: static; M1: measured bandwidth).
+  <span class="dot" style="background:#3b82f6"></span>prefrontal
+  <span class="dot" style="background:#f59e0b"></span>limbic/salience
+  <span class="dot" style="background:#22c55e"></span>sensory strips
+  <span class="dot" style="background:#a855f7"></span>interoception
+  <span class="dot" style="background:#64748b"></span>development
+</div>
+<div id="honesty">Neuroform is a simulation. Its feelings are simulated feelings; its mind is a model. It does not experience, and it does not know it does not experience.</div>
+<script src="main.js"></script>
+</body>
+</html>

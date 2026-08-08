@@ -1,0 +1,24 @@
+target/
+**/*.rs.bk
+*.brain
+*.brain.tmp
+*.brain.jnl
+# Local build artifact (machine-built; rebuild with `cargo build --release`)
+/neuroform.exe
+__pycache__/
+*.pyc
+node_modules/
+snapshot.json
+preview.html
+# LLM credentials sidecar (endpoint keys — never commit)
+llm.json
+
+# Pretrained encoder models (1.2GB+ each; re-download per BUILD-THE-BODY.md, never commit)
+models/
+
+# Per-brain library sidecar (W2 user data)
+writing/
+*.brain.bk
+
+# Machine-specific build config (apostrophe-path target-dir workaround)
+.cargo/config.toml

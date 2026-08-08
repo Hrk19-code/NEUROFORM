@@ -1,0 +1,3 @@
+# registry sidecars are machine-side organ-attachment state (per §38 the
+# adapter lives outside the file). Never commit attachment state.
+*.json
